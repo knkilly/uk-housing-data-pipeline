@@ -70,10 +70,37 @@ pixi run silver     # clean + standardise
 pixi run gold       # aggregate into analytics tables
 ```
 
+### 4. Start the dashboard
+
+```bash
+# Terminal 1 — API
+pixi run -e api api
+
+# Terminal 2 — Frontend
+cd app/frontend
+npm install    # first time only
+npm run dev
+```
+
+Open http://localhost:5173
+
+### Production build
+
+```bash
+cd app/frontend && npm run build
+pixi run -e api api-prod
+# → http://localhost:8000
+```
+
 ## Tech Stack
 
 | Layer | Technology | Purpose |
 |---|---|---|
 | Database | DuckDB | Embedded columnar analytics DB — fast aggregations, no server needed |
 | Pipeline | Python | Bronze/silver/gold medallion transforms |
+| Backend | FastAPI + Uvicorn | Async API with thread-safe DuckDB access |
+| Frontend | React + TypeScript + Vite | Single-page application |
+| Maps | Leaflet + Stadia Maps tiles | Interactive UK maps with circle markers and heatmaps |
+| Charts | Plotly | Price trends, volume, property types, candlestick seasonality |
+| Data fetching | TanStack Query | Cached API calls with 5-minute stale time |
 | Package mgmt | pixi | Conda-based Python environment management |
