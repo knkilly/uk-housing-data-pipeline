@@ -97,3 +97,4 @@ venv.bak/
 
 # Processed Files
 data*
+!app/frontend/src/lib
