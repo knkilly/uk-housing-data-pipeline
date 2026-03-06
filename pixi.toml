@@ -1,7 +1,7 @@
 [workspace]
-name = "housing-data-pipeline"
+name = "housing-analytics"
 version = "1.0.0"
-description = "UK Housing Data Platform — DuckDB medallion pipeline"
+description = "UK Housing Analytics Platform — DuckDB medallion pipeline + FastAPI/React dashboard"
 channels = ["conda-forge"]
 platforms = ["win-64"]
 
@@ -30,5 +30,17 @@ seaborn = ">=0.13.0"
 [feature.dev.tasks]
 notebook = "jupyter notebook"
 
+[feature.api.dependencies]
+python  = ">=3.11"
+fastapi = ">=0.111.0"
+uvicorn = ">=0.29.0"
+duckdb  = ">=0.10.0"
+pandas  = ">=2.0.0"
+
+[feature.api.tasks]
+api      = "uvicorn app.main:app --reload --port 8000 --app-dir ."
+api-prod = "uvicorn app.main:app --port 8000 --app-dir ."
+
 [environments]
 dev = ["dev"]
+api = { features = ["api"], solve-group = "default" }

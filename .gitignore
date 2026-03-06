@@ -98,3 +98,4 @@ venv.bak/
 # Processed Files
 data*
 !app/frontend/src/lib
+app/frontend/node_modules*
