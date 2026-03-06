@@ -1,0 +1,34 @@
+[workspace]
+name = "housing-data-pipeline"
+version = "1.0.0"
+description = "UK Housing Data Platform — DuckDB medallion pipeline"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+python = ">=3.11,<3.13"
+duckdb = ">=1.0.0"
+pandas = ">=2.1.0"
+pyarrow = ">=14.0.0"
+requests = ">=2.31.0"
+
+[tasks]
+setup    = "python scripts/00_setup_environment.py"
+download = "python scripts/00_download_postcodes.py"
+bronze   = "python scripts/01_bronze_ingestion.py"
+silver   = "python scripts/02_silver_transformation.py"
+gold     = "python scripts/03_gold_aggregation.py"
+query    = "python scripts/04_query_data.py"
+process  = "python scripts/process_layers.py"
+
+[feature.dev.dependencies]
+ipython = ">=8.0.0"
+jupyter = ">=1.0.0"
+matplotlib = ">=3.8.0"
+seaborn = ">=0.13.0"
+
+[feature.dev.tasks]
+notebook = "jupyter notebook"
+
+[environments]
+dev = ["dev"]
