@@ -33,6 +33,14 @@ The pipeline follows a **medallion architecture** within a single DuckDB databas
 | `postcode_area_labels` | Human-readable area names derived from transaction data |
 | `uk_overview` | UK-wide postcode area centroids for the overview map |
 
+## Dashboard
+
+The web app is a **FastAPI** backend serving a **React + TypeScript** frontend with:
+
+- Full-viewport Leaflet map of the UK with colour-coded bubble markers per postcode area
+- Area detail pages with KPIs, price trend charts, transaction volume, property type breakdowns, monthly seasonality candlestick, heatmap with property type and price filtering, and sortable district tables
+- All charts use Plotly with a consistent dark theme ported from an earlier Streamlit prototype
+- TanStack Query for data fetching with 5-minute cache for instant back-navigation
 
 ## Quick Start
 
@@ -104,3 +112,12 @@ pixi run -e api api-prod
 | Charts | Plotly | Price trends, volume, property types, candlestick seasonality |
 | Data fetching | TanStack Query | Cached API calls with 5-minute stale time |
 | Package mgmt | pixi | Conda-based Python environment management |
+
+## Licence & Data Attribution
+
+This project is for educational and portfolio purposes. It is not financial advice.
+
+Contains HM Land Registry data © Crown copyright and database right 2025. This data is licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+Contains OS data © Crown copyright and database right 2025.
+Contains Royal Mail data © Royal Mail copyright and database right 2025.
+Contains National Statistics data © Crown copyright and database right 2025.
