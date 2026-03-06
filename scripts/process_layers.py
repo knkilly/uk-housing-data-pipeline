@@ -32,7 +32,7 @@ def main():
     skip_download = "--skip-download" in sys.argv
 
     print("╔" + "═" * 68 + "╗")
-    print("║" + " UK HOUSING ANALYTICS — FULL PIPELINE".center(68) + "║")
+    print("║" + " UK Housing Data Pipeline — FULL PIPELINE".center(68) + "║")
     print("╚" + "═" * 68 + "╝")
     print(f"  Started:  {datetime.now():%Y-%m-%d %H:%M:%S}")
     print(f"  Download: {'skip' if skip_download else 'enabled'}")

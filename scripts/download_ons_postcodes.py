@@ -75,7 +75,7 @@ def download_postcodes():
     # First request: get total record count
     print("Fetching total record count...")
     session = requests.Session()
-    session.headers.update({"User-Agent": "housing-analytics-poc/1.0"})
+    session.headers.update({"User-Agent": "housing-data-pipeline-poc/1.0"})
 
     count_resp = session.get(BASE_URL, params={
         "where": "1=1", "returnCountOnly": "true", "f": "json"
