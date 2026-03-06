@@ -1,11 +1,17 @@
-declare module 'react-plotly.js' {
-  import { Component } from 'react'
-  import type Plotly from 'plotly.js-dist-min'
+declare module 'plotly.js-dist-min' {
+  const Plotly: any
+  export default Plotly
+  export type Data = any
+  export type Layout = any
+  export type Config = any
+  export type LayoutAxis = any
+}
 
+declare module 'react-plotly.js' {
   interface PlotParams {
-    data: Plotly.Data[]
-    layout?: Partial<Plotly.Layout>
-    config?: Partial<Plotly.Config>
+    data: any[]
+    layout?: any
+    config?: any
     style?: React.CSSProperties
     useResizeHandler?: boolean
     onInitialized?: (figure: any, graphDiv: HTMLElement) => void
@@ -19,18 +25,18 @@ declare module 'react-plotly.js' {
 declare module 'leaflet.heat' {
   import * as L from 'leaflet'
 
-  namespace L {
-    function heatLayer(
-      latlngs: [number, number, number][],
-      options?: {
-        radius?: number
-        blur?: number
-        maxZoom?: number
-        max?: number
-        gradient?: Record<number, string>
-      },
-    ): L.Layer
-  }
+  function heatLayer(
+    latlngs: [number, number, number][],
+    options?: {
+      radius?: number
+      blur?: number
+      maxZoom?: number
+      max?: number
+      gradient?: Record<number, string>
+    },
+  ): L.Layer
+
+  export = heatLayer
 }
 
 declare module '*.png' {

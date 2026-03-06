@@ -43,8 +43,7 @@ function HeatLayer({ data }: { data: HeatmapRow[] }) {
       maxPrice > 0 ? val / maxPrice : 0.5,
     ])
 
-    // @ts-expect-error leaflet.heat augments L
-    const heat = L.heatLayer(normalised, {
+    const heat = (L as any).heatLayer(normalised, {
       radius: 25,
       blur: 15,
       maxZoom: 17,

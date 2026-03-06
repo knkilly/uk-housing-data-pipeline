@@ -11,7 +11,7 @@ export const PURPLE  = '#b07ec9'
 export const PALETTE = [GOLD, BLUE, RED, GREEN, PURPLE]
 
 /** Shared Plotly layout — matches the Streamlit dashboard PLOTLY_LAYOUT */
-export const PLOTLY_LAYOUT: Partial<Plotly.Layout> = {
+export const PLOTLY_LAYOUT: Record<string, any> = {
   paper_bgcolor: SURFACE,
   plot_bgcolor: SURFACE,
   font: { family: 'DM Sans', color: MUTED, size: 12 },
@@ -19,7 +19,7 @@ export const PLOTLY_LAYOUT: Partial<Plotly.Layout> = {
   colorway: PALETTE,
 }
 
-export const AXIS: Partial<Plotly.LayoutAxis> = {
+export const AXIS: Record<string, any> = {
   gridcolor: BORDER,
   linecolor: BORDER,
   automargin: true,
@@ -38,6 +38,3 @@ export const PROP_LABELS: Record<string, string> = {
   Other:           'Other',
   Unknown:         'Unknown',
 }
-
-// Import Plotly types for layout typing
-import type Plotly from 'plotly.js-dist-min'
