@@ -6,17 +6,10 @@ import { fmtPrice } from '../lib/api'
 import { typeColour, priceShade } from '../theme'
 import OSMapsTiles from './OSMapsTiles'
 
-export interface MapFocus {
-  center: [number, number]
-  zoom: number
-}
-
 interface Props {
   data: HeatmapRow[]
   center: [number, number]
   zoom: number
-  /** When this changes, the map flies to the given centre/zoom. */
-  focus?: MapFocus | null
 }
 
 /**
@@ -24,7 +17,7 @@ interface Props {
  *   hue      = property type (TYPE_COLORS)
  *   darkness = price — darker = more expensive
  * Price is normalised across the MIN–MAX of whatever points are passed in, so
- * filtering to a district or a subset of types rescales the shading to match.
+ * filtering to a subset of types rescales the shading to match.
  * Rendered to a shared canvas for performance (up to 5000 points).
  */
 function PointLayer({ data }: { data: HeatmapRow[] }) {
@@ -76,18 +69,7 @@ function PointLayer({ data }: { data: HeatmapRow[] }) {
   return null
 }
 
-/** Flies the map whenever `focus` changes identity. */
-function MapController({ focus }: { focus?: MapFocus | null }) {
-  const map = useMap()
-  useEffect(() => {
-    if (focus) {
-      map.flyTo(focus.center, focus.zoom, { duration: 0.6 })
-    }
-  }, [focus, map])
-  return null
-}
-
-export default function HeatMap({ data, center, zoom, focus }: Props) {
+export default function HeatMap({ data, center, zoom }: Props) {
   return (
     <MapContainer
       center={center}
@@ -99,7 +81,6 @@ export default function HeatMap({ data, center, zoom, focus }: Props) {
     >
       <OSMapsTiles />
       <PointLayer data={data} />
-      <MapController focus={focus} />
     </MapContainer>
   )
 }

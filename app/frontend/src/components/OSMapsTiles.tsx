@@ -9,7 +9,7 @@ interface Props {
 }
 
 /**
- * OS Maps API raster basemap — Light style, Web Mercator (EPSG:3857).
+ * OS Maps API raster basemap — Outdoor style, Web Mercator (EPSG:3857).
  *
  * Pre-rendered raster tiles through a plain Leaflet TileLayer: no WebGL, no
  * MapLibre, no extra dependencies, so it initialises fast — the right weight

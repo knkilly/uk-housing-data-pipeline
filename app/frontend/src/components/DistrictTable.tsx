@@ -12,7 +12,7 @@ type SortKey = 'postcode_district' | 'district_name' | 'transaction_count' | 'av
 const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'postcode_district', label: 'District', align: 'left' },
   { key: 'district_name', label: 'Area Name', align: 'left' },
-  { key: 'transaction_count', label: 'Transactions', align: 'right' },
+  { key: 'transaction_count', label: 'Sales', align: 'right' },
   { key: 'avg_price', label: 'Avg Price', align: 'right' },
   { key: 'median_price', label: 'Median Price', align: 'right' },
 ]

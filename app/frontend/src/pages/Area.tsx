@@ -15,7 +15,6 @@ import VolumeChart from '../components/VolumeChart'
 import PropertyType from '../components/PropertyType'
 import Candlestick from '../components/Candlestick'
 import HeatMap from '../components/HeatMap'
-import type { MapFocus } from '../components/HeatMap'
 import DistrictTable from '../components/DistrictTable'
 import { SURFACE, BORDER, TEXT, MUTED, GOLD, RED, GREEN, BG, typeColour, priceShade, PROP_LABELS } from '../theme'
 
@@ -106,10 +105,6 @@ export default function Area() {
   const [heatPriceMax, setHeatPriceMax] = useState(1000)
   const [boundsInit, setBoundsInit] = useState(false)
 
-  // District focus: when a district row is clicked, the heatmap zooms to it and
-  // rescales its colour ramp to that district. null = whole area.
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null)
-
   // Property-type filter (client-side, multi-select). Seeded with all available
   // types once the data loads; an empty set shows nothing.
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
@@ -117,7 +112,6 @@ export default function Area() {
 
   // Reset per-area view state when navigating between areas.
   useEffect(() => {
-    setSelectedDistrict(null)
     setSelectedTypes(new Set())
     setTypesInit(false)
   }, [areaCode])
@@ -196,21 +190,11 @@ export default function Area() {
     return uniqueDistricts <= 5 ? 11 : uniqueDistricts <= 15 ? 10 : 9
   }, [heatmap.data])
 
-  // The district row matching the current selection (if any).
-  const selectedRow = useMemo(
-    () => districts.data?.find(d => d.postcode_district === selectedDistrict) ?? null,
-    [districts.data, selectedDistrict],
-  )
-
-  // Heat points actually shown: filtered to the selected district and types.
+  // Heat points actually shown: filtered to the selected types.
   const displayedHeat = useMemo(() => {
     if (!heatmap.data) return []
-    return heatmap.data.filter(
-      r =>
-        (!selectedDistrict || r.postcode_district === selectedDistrict) &&
-        selectedTypes.has(r.property_type),
-    )
-  }, [heatmap.data, selectedDistrict, selectedTypes])
+    return heatmap.data.filter(r => selectedTypes.has(r.property_type))
+  }, [heatmap.data, selectedTypes])
 
   // Property types present in this area, with sale counts (area-wide).
   const availableTypes = useMemo(
@@ -255,22 +239,6 @@ export default function Area() {
     setSelectedTypes(new Set(availableTypes))
   }, [availableTypes])
 
-  // Where the map should fly. Identity changes only when the target changes,
-  // so the map flies on selection and on reset, not on every render.
-  const focus = useMemo<MapFocus>(() => {
-    if (selectedRow && selectedRow.center_lat) {
-      return { center: [selectedRow.center_lat, selectedRow.center_long], zoom: 13 }
-    }
-    return { center: heatCenter, zoom: heatZoom }
-  }, [selectedRow, heatCenter, heatZoom])
-
-  const handleSelectDistrict = useCallback((row: { postcode_district: string }) => {
-    // Toggle: clicking the focused district again clears the focus.
-    setSelectedDistrict(prev => (prev === row.postcode_district ? null : row.postcode_district))
-  }, [])
-
-  const resetArea = useCallback(() => setSelectedDistrict(null), [])
-
   // ── Section styles ──────────────────────────────────────────
   const section: React.CSSProperties = { padding: '0 1.5rem', marginBottom: '1.5rem' }
   const hr: React.CSSProperties = { border: 'none', borderTop: `1px solid ${BORDER}`, margin: '1.5rem 0' }
@@ -300,7 +268,7 @@ export default function Area() {
               delta={`${yoyPct >= 0 ? '+' : ''}${yoyPct.toFixed(1)}% YoY (${latest.transaction_year})`}
             />
             <KPI label="Median Price" value={fmtPrice(latest.median_price)} />
-            <KPI label="Transactions" value={latest.transaction_count.toLocaleString()} delta={`in ${latest.transaction_year}`} />
+            <KPI label="Sales" value={latest.transaction_count.toLocaleString()} delta={`in ${latest.transaction_year}`} />
             <KPI label="Years of Data" value={String(summary.data?.length || 0)} delta="Land Registry" />
           </div>
         ) : (
@@ -348,33 +316,7 @@ export default function Area() {
 
       {/* 5. Price Heatmap */}
       <div style={section}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 400 }}>Price Heatmap</h4>
-          {selectedDistrict && (
-            <>
-              <span style={{ color: GOLD, fontSize: '0.8rem' }}>
-                Focused on {selectedDistrict}
-                {selectedRow?.district_name ? ` · ${selectedRow.district_name}` : ''}
-              </span>
-              <button
-                onClick={resetArea}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '0.3rem 0.7rem',
-                  background: SURFACE,
-                  border: `1px solid ${GOLD}`,
-                  borderRadius: 6,
-                  color: GOLD,
-                  fontFamily: 'DM Sans',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                }}
-              >
-                ↺ Reset to whole area
-              </button>
-            </>
-          )}
-        </div>
+        <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.5rem' }}>Price Heatmap</h4>
         <div style={{ display: 'flex', gap: '1rem' }}>
           {/* Map */}
           <div style={{ flex: 1 }}>
@@ -383,12 +325,11 @@ export default function Area() {
             ) : heatmap.error ? (
               <ErrorMsg msg="Failed to load heatmap" />
             ) : (
-              <HeatMap data={displayedHeat} center={heatCenter} zoom={heatZoom} focus={focus} />
+              <HeatMap data={displayedHeat} center={heatCenter} zoom={heatZoom} />
             )}
             {heatmap.data && (
               <p style={{ color: MUTED, fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                {displayedHeat.length.toLocaleString()} points shown
-                {selectedDistrict ? ` in ${selectedDistrict}` : ''} · last 5 years of sales data
+                {displayedHeat.length.toLocaleString()} points shown · last 5 years of sales data
               </p>
             )}
           </div>
@@ -507,14 +448,16 @@ export default function Area() {
 
       {/* 6. District Table */}
       <div style={section}>
-        <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.5rem' }}>
+        <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.35rem' }}>
           District Breakdown (Latest Year)
-          <span style={{ color: MUTED, fontSize: '0.75rem', marginLeft: '0.6rem', fontWeight: 400 }}>
-            — click a row to focus the heatmap
-          </span>
         </h4>
+        <p style={{ color: MUTED, fontSize: '0.75rem', marginBottom: '0.6rem', lineHeight: 1.4 }}>
+          <strong style={{ color: TEXT, fontWeight: 500 }}>Sales</strong> = completed property transfers
+          registered with HM Land Registry. A property that sold more than once is counted each time, so
+          this is the number of sales — not the number of distinct properties.
+        </p>
         {districts.isLoading ? <Skeleton height={200} /> : districts.error ? <ErrorMsg msg="Failed to load districts" /> : districts.data && (
-          <DistrictTable {...({ data: districts.data, onSelect: handleSelectDistrict, selected: selectedDistrict } as any)} />
+          <DistrictTable data={districts.data} />
         )}
       </div>
 
