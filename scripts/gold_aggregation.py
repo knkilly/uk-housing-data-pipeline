@@ -415,12 +415,12 @@ def create_gold_layer():
     print("=" * 70)
 
     indexes = [
-        ("idx_summary_area",        "gold.market_summary_by_area",     "postcode_area"),
+        ("idx_summary_area",        "gold.market_summary_by_area",      "postcode_area"),
         ("idx_district_area",       "gold.market_summary_by_district",  "postcode_area"),
         ("idx_district_code",       "gold.market_summary_by_district",  "postcode_district"),
         ("idx_heatmap_area",        "gold.heatmap_data",                "postcode_area"),
         ("idx_heatmap_district",    "gold.heatmap_data",                "postcode_district"),
-        ("idx_heatmap_type_area",   "gold.heatmap_data_by_type",        "(postcode_area, property_type)"),
+        ("idx_heatmap_type_area",   "gold.heatmap_data_by_type",        "(postcode_area property_type)"),
         ("idx_monthly_area",        "gold.monthly_trends_by_area",      "postcode_area"),
         ("idx_property_area",       "gold.property_analysis_by_area",   "postcode_area"),
         ("idx_area_labels",         "gold.postcode_area_labels",        "postcode_area"),

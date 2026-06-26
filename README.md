@@ -86,7 +86,7 @@ pixi run -e api api
 
 # Terminal 2 — Frontend
 cd app/frontend
-npm install    # first time only
+npm install  # first time only
 npm run dev
 ```
 

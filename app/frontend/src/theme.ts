@@ -38,3 +38,44 @@ export const PROP_LABELS: Record<string, string> = {
   Other:           'Other',
   Unknown:         'Unknown',
 }
+
+// ---------------------------------------------------------------------------
+// Categorical price map — hue = property type, darkness = price
+// ---------------------------------------------------------------------------
+
+/** Stable hue per property type (falls back to MUTED for unknowns). */
+export const TYPE_COLORS: Record<string, string> = {
+  Detached:          BLUE,
+  'Semi-Detached':   GREEN,
+  Terraced:          GOLD,
+  Flat:              PURPLE,
+  'Flat/Maisonette': PURPLE,
+  Other:             RED,
+  Unknown:           MUTED,
+}
+
+export function typeColour(type: string): string {
+  return TYPE_COLORS[type] ?? MUTED
+}
+
+function mixHex(hex: string, target: string, t: number): string {
+  const p = (h: string): [number, number, number] => [
+    parseInt(h.slice(1, 3), 16),
+    parseInt(h.slice(3, 5), 16),
+    parseInt(h.slice(5, 7), 16),
+  ]
+  const [r1, g1, b1] = p(hex)
+  const [r2, g2, b2] = p(target)
+  const r = Math.round(r1 + (r2 - r1) * t)
+  const g = Math.round(g1 + (g2 - g1) * t)
+  const b = Math.round(b1 + (b2 - b1) * t)
+  return `rgb(${r},${g},${b})`
+}
+
+/** Shade a hue by price: t=0 (cheap) lighter, t=1 (expensive) darker. */
+export function priceShade(hex: string, t: number): string {
+  const tc = Math.max(0, Math.min(1, t))
+  return tc < 0.5
+    ? mixHex(hex, '#ffffff', (0.5 - tc) * 1.4)
+    : mixHex(hex, '#000000', (tc - 0.5) * 1.4)
+}

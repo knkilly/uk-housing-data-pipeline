@@ -1,0 +1,9 @@
+/*
+ * Recolour the OS "Light" raster basemap to sit on the dark dashboard.
+ * Leaflet applies a TileLayer's `className` to each tile <img>, so this
+ * filter touches ONLY the OS tiles — not the circle markers or heat layer
+ * (which render in separate Leaflet panes). Tune to taste.
+ */
+.os-maps-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.85);
+}

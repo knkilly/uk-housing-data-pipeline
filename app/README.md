@@ -60,7 +60,7 @@ app/
 ├── routers/
 │   └── api.py                 ← all /api/* route handlers
 └── frontend/
-    ├── .env                   ← VITE_STADIA_KEY (gitignored)
+    ├── .env                   ← VITE_OS_API_KEY (gitignored)
     ├── package.json
     ├── vite.config.ts         ← proxies /api to :8000 in dev
     └── src/
@@ -97,4 +97,4 @@ app/
 | Variable | Default | Description |
 |---|---|---|
 | `HOUSING_DB_PATH` | `data/processed/housing_analytics.db` | Path to the DuckDB database |
-| `VITE_STADIA_KEY` | — | Stadia Maps API key (frontend) |
+| `VITE_OS_API_KEY` | — | OS Maps NGD API key (frontend) |

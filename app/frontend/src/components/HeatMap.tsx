@@ -1,63 +1,69 @@
-import { useEffect, useRef, useMemo } from 'react'
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import { useEffect, useRef } from 'react'
+import { MapContainer, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import 'leaflet.heat'
 import type { HeatmapRow } from '../lib/api'
+import { fmtPrice } from '../lib/api'
+import { typeColour, priceShade } from '../theme'
+import OSMapsTiles from './OSMapsTiles'
 
-const STADIA_KEY = import.meta.env.VITE_STADIA_KEY || ''
+export interface MapFocus {
+  center: [number, number]
+  zoom: number
+}
 
 interface Props {
   data: HeatmapRow[]
   center: [number, number]
   zoom: number
+  /** When this changes, the map flies to the given centre/zoom. */
+  focus?: MapFocus | null
 }
 
 /**
- * Inner component that manages the heat layer via useEffect.
- * The MapContainer is rendered once; only the heat layer is replaced.
+ * Categorical price layer: one circle per point.
+ *   hue      = property type (TYPE_COLORS)
+ *   darkness = price — darker = more expensive
+ * Price is normalised across the MIN–MAX of whatever points are passed in, so
+ * filtering to a district or a subset of types rescales the shading to match.
+ * Rendered to a shared canvas for performance (up to 5000 points).
  */
-function HeatLayer({ data }: { data: HeatmapRow[] }) {
+function PointLayer({ data }: { data: HeatmapRow[] }) {
   const map = useMap()
-  const layerRef = useRef<L.Layer | null>(null)
+  const layerRef = useRef<L.LayerGroup | null>(null)
 
   useEffect(() => {
-    // Remove previous heat layer
     if (layerRef.current) {
       map.removeLayer(layerRef.current)
       layerRef.current = null
     }
-
     if (data.length === 0) return
 
-    const points: [number, number, number][] = data.map(r => [
-      r.latitude,
-      r.longitude,
-      r.avg_price,
-    ])
+    const prices = data.map(r => r.avg_price)
+    const minP = Math.min(...prices)
+    const maxP = Math.max(...prices)
+    const range = maxP - minP
 
-    // Normalise intensity to [0, 1]
-    const maxPrice = Math.max(...data.map(r => r.avg_price))
-    const normalised: [number, number, number][] = points.map(([lat, lng, val]) => [
-      lat,
-      lng,
-      maxPrice > 0 ? val / maxPrice : 0.5,
-    ])
+    const renderer = L.canvas({ padding: 0.5 })
+    const group = L.layerGroup()
 
-    const heat = (L as any).heatLayer(normalised, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 17,
-      gradient: {
-        0.0: '#ffffb2',
-        0.25: '#fed976',
-        0.5: '#fd8d3c',
-        0.75: '#e31a1c',
-        1.0: '#b10026',
-      },
-    })
+    for (const r of data) {
+      const t = range > 0 ? (r.avg_price - minP) / range : 0.5
+      const marker = L.circleMarker([r.latitude, r.longitude], {
+        renderer,
+        radius: 5,
+        stroke: false,
+        fillColor: priceShade(typeColour(r.property_type), t),
+        fillOpacity: 0.82,
+      })
+      marker.bindTooltip(
+        `${r.property_type} · ${fmtPrice(r.avg_price)}<br>${r.postcode_district} · ${r.total_transactions.toLocaleString()} sales`,
+        { direction: 'top', opacity: 0.9 },
+      )
+      marker.addTo(group)
+    }
 
-    heat.addTo(map)
-    layerRef.current = heat
+    group.addTo(map)
+    layerRef.current = group
 
     return () => {
       if (layerRef.current) {
@@ -70,23 +76,30 @@ function HeatLayer({ data }: { data: HeatmapRow[] }) {
   return null
 }
 
-export default function HeatMap({ data, center, zoom }: Props) {
-  const tileUrl = STADIA_KEY
-    ? `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+/** Flies the map whenever `focus` changes identity. */
+function MapController({ focus }: { focus?: MapFocus | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (focus) {
+      map.flyTo(focus.center, focus.zoom, { duration: 0.6 })
+    }
+  }, [focus, map])
+  return null
+}
 
+export default function HeatMap({ data, center, zoom, focus }: Props) {
   return (
     <MapContainer
       center={center}
       zoom={zoom}
+      maxZoom={20}
+      preferCanvas={true}
       style={{ width: '100%', height: 480, borderRadius: 8 }}
       zoomControl={true}
     >
-      <TileLayer
-        url={tileUrl}
-        attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-      />
-      <HeatLayer data={data} />
+      <OSMapsTiles />
+      <PointLayer data={data} />
+      <MapController focus={focus} />
     </MapContainer>
   )
 }
