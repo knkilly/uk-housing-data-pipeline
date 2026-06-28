@@ -6,7 +6,7 @@ import {
   fetchPropertyTypes,
   fetchMonthly,
   fetchHeatmap,
-  fetchDistricts,
+  fetchRepeatSales,
   fetchAreaLabels,
   fmtPrice,
 } from '../lib/api'
@@ -15,7 +15,7 @@ import VolumeChart from '../components/VolumeChart'
 import PropertyType from '../components/PropertyType'
 import Candlestick from '../components/Candlestick'
 import HeatMap from '../components/HeatMap'
-import DistrictTable from '../components/DistrictTable'
+import RepeatSalesMap from '../components/RepeatSalesMap'
 import { SURFACE, BORDER, TEXT, MUTED, GOLD, RED, GREEN, BG, typeColour, priceShade, PROP_LABELS } from '../theme'
 
 function Skeleton({ height = 320 }: { height?: number }) {
@@ -89,9 +89,9 @@ export default function Area() {
     enabled: !!areaCode,
   })
 
-  const districts = useQuery({
-    queryKey: ['districts', areaCode],
-    queryFn: () => fetchDistricts(areaCode),
+  const repeatSales = useQuery({
+    queryKey: ['repeat-sales', areaCode],
+    queryFn: () => fetchRepeatSales(areaCode),
     enabled: !!areaCode,
   })
 
@@ -166,23 +166,12 @@ export default function Area() {
 
   const heatCenter = useMemo<[number, number]>(() => {
     if (!heatmap.data || heatmap.data.length === 0) {
-      // Fallback from districts
-      if (districts.data && districts.data.length > 0) {
-        const lats = districts.data.map(d => d.center_lat).filter(Boolean)
-        const lngs = districts.data.map(d => d.center_long).filter(Boolean)
-        if (lats.length > 0) {
-          return [
-            lats.reduce((a, b) => a + b, 0) / lats.length,
-            lngs.reduce((a, b) => a + b, 0) / lngs.length,
-          ]
-        }
-      }
       return [54.5, -3.0]
     }
     const sorted = [...heatmap.data].sort((a, b) => a.latitude - b.latitude)
     const medIdx = Math.floor(sorted.length / 2)
     return [sorted[medIdx].latitude, sorted[medIdx].longitude]
-  }, [heatmap.data, districts.data])
+  }, [heatmap.data])
 
   const heatZoom = useMemo(() => {
     if (!heatmap.data || heatmap.data.length === 0) return 10
@@ -253,6 +242,15 @@ export default function Area() {
           <span style={{ color: MUTED, fontSize: '0.95rem' }}>{labels[areaCode]}</span>
         )}
       </div>
+
+      {/* Sales definition - highlighted at top */}
+      <div style={{ padding: '0 1.5rem', marginBottom: '1.5rem', background: `${GOLD}08`, borderLeft: `3px solid ${GOLD}`, paddingLeft: '1.2rem', paddingTop: '0.75rem', paddingBottom: '0.75rem', borderRadius: 4 }}>
+        <p style={{ color: TEXT, fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+          <strong style={{ color: GOLD, fontWeight: 500 }}>Sales</strong> = completed property transfers registered with HM Land Registry. A property that sold more than once is counted each time, so this is the number of sales — not the number of distinct properties.
+        </p>
+      </div>
+
+      <hr style={hr} />
 
       {/* 1. KPI row */}
       <div style={section}>
@@ -444,20 +442,30 @@ export default function Area() {
         </div>
       </div>
 
-      <hr style={hr} />
 
-      {/* 6. District Table */}
+      {/* 7. Repeat Sales */}
       <div style={section}>
         <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.35rem' }}>
-          District Breakdown (Latest Year)
+          Repeat Sales — properties sold 2+ times
         </h4>
         <p style={{ color: MUTED, fontSize: '0.75rem', marginBottom: '0.6rem', lineHeight: 1.4 }}>
-          <strong style={{ color: TEXT, fontWeight: 500 }}>Sales</strong> = completed property transfers
-          registered with HM Land Registry. A property that sold more than once is counted each time, so
-          this is the number of sales — not the number of distinct properties.
+          Address-matched properties (postcode + house/flat identifier) that sold more than once across
+          all years. Colour = annualised price change (<span style={{ color: RED }}>fell</span> →
+          grey → <span style={{ color: GREEN }}>rose</span>), size = number of sales.
+          Click a point for its full price history. Matching is address-based, so it's not guaranteed
+          to be the exact same dwelling.
         </p>
-        {districts.isLoading ? <Skeleton height={200} /> : districts.error ? <ErrorMsg msg="Failed to load districts" /> : districts.data && (
-          <DistrictTable data={districts.data} />
+        {repeatSales.isLoading ? <Skeleton height={480} /> : repeatSales.error ? <ErrorMsg msg="Failed to load repeat sales" /> : repeatSales.data && (
+          repeatSales.data.length > 0 ? (
+            <>
+              <RepeatSalesMap data={repeatSales.data} center={heatCenter} zoom={heatZoom} />
+              <p style={{ color: MUTED, fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                {repeatSales.data.length.toLocaleString()} repeat-sold properties · click any point for its price history
+              </p>
+            </>
+          ) : (
+            <p style={{ color: MUTED, fontSize: '0.85rem' }}>No address-matched repeat sales found for this area.</p>
+          )
         )}
       </div>
 

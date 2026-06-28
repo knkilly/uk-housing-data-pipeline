@@ -24,11 +24,12 @@ interface Props {
 export default function OSMapsTiles({ dark = true }: Props) {
   const year = new Date().getFullYear()
   return (
-    <TileLayer
-      url={`https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${OS_KEY}`}
-      attribution={`Contains OS data &copy; Crown copyright and database rights ${year}`}
-      className={dark ? 'os-maps-dark' : undefined}
-      maxZoom={20}
-    />
+    <div className={dark ? 'os-maps-tiles-wrapper-dark' : 'os-maps-tiles-wrapper'}>
+      <TileLayer
+        url={`https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${OS_KEY}`}
+        attribution={`Contains OS data &copy; Crown copyright and database rights ${year}`}
+        maxZoom={20}
+      />
+    </div>
   )
 }

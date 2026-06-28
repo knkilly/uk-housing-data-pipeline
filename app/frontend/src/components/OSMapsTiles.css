@@ -7,3 +7,7 @@
 .os-maps-dark {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.85);
 }
+
+.os-maps-tiles-wrapper-dark {
+  filter: saturate(0.65) brightness(0.92) contrast(0.88);
+}

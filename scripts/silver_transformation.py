@@ -218,7 +218,65 @@ def transform_silver_layer():
         return False
     
     print()
-    
+
+    # =========================================================================
+    # 3. Repeat-Property Sales (helper for gold.repeat_sales)
+    # =========================================================================
+    print("=" * 70)
+    print("3. Building Repeat-Property Sales helper")
+    print("=" * 70)
+    print("Narrowing to address-matched properties with 3+ sales")
+    print("(key = postcode + PAON + SAON). The heavy filter runs once here so")
+    print("gold.repeat_sales becomes a light aggregation.")
+    print()
+
+    start_time = datetime.now()
+    try:
+        con.execute("PRAGMA preserve_insertion_order=false")
+
+        # Pass 1 (cheap, count only): which properties sold 3+ times.
+        # 3+ is a more meaningful "repeat" signal than 2 and sharply shrinks
+        # the set (most homes have sold exactly twice since 1995).
+        t0 = datetime.now()
+        con.execute("DROP TABLE IF EXISTS silver.repeat_keys")
+        con.execute("""
+            CREATE TABLE silver.repeat_keys AS
+            SELECT postcode, paon, saon
+            FROM silver.transactions
+            WHERE paon <> 'Unknown'
+            GROUP BY postcode, paon, saon
+            HAVING COUNT(*) >= 3
+        """)
+        n_keys = con.execute("SELECT COUNT(*) FROM silver.repeat_keys").fetchone()[0]
+        print(f"  [1/2] repeat property keys: {n_keys:,}  "
+              f"({(datetime.now() - t0).total_seconds():.1f}s)")
+
+        # Pass 2: keep only the sale rows for those properties.
+        t0 = datetime.now()
+        con.execute("DROP TABLE IF EXISTS silver.repeat_property_sales")
+        con.execute("""
+            CREATE TABLE silver.repeat_property_sales AS
+            SELECT t.postcode, t.paon, t.saon, t.street, t.town_city,
+                   t.transaction_date, t.price, t.tenure
+            FROM silver.transactions t
+            INNER JOIN silver.repeat_keys k
+                ON  t.postcode = k.postcode
+                AND t.paon     = k.paon
+                AND t.saon IS NOT DISTINCT FROM k.saon
+        """)
+        n_rows = con.execute("SELECT COUNT(*) FROM silver.repeat_property_sales").fetchone()[0]
+        print(f"  [2/2] repeat-property sale rows: {n_rows:,}  "
+              f"({(datetime.now() - t0).total_seconds():.1f}s)")
+
+        con.execute("DROP TABLE IF EXISTS silver.repeat_keys")
+        duration = (datetime.now() - start_time).total_seconds()
+        print(f"✓ Built silver.repeat_property_sales in {duration:.2f} seconds")
+    except Exception as e:
+        print(f"✗ Error building repeat-property sales: {e}")
+        return False
+
+    print()
+
     # Summary
     print("=" * 70)
     print("SILVER LAYER SUMMARY")
@@ -238,6 +296,13 @@ def transform_silver_layer():
             NULL,
             NULL
         FROM silver.postcodes
+        UNION ALL
+        SELECT
+            'Repeat-property sales' as table_name,
+            COUNT(*) as row_count,
+            NULL,
+            NULL
+        FROM silver.repeat_property_sales
     """).fetchdf()
     
     print(stats.to_string(index=False))

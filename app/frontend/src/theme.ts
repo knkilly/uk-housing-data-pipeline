@@ -79,3 +79,13 @@ export function priceShade(hex: string, t: number): string {
     ? mixHex(hex, '#ffffff', (0.5 - tc) * 1.4)
     : mixHex(hex, '#000000', (tc - 0.5) * 1.4)
 }
+
+/**
+ * Diverging colour for a % change: red (fell) → grey (flat) → green (rose).
+ * Neutral is centred on 0%. Falls saturate by ~8%/yr, rises by ~12%/yr.
+ */
+export function changeColour(pct: number): string {
+  const grey = '#6a6a7a'
+  if (pct < 0) return mixHex(grey, RED, Math.min(Math.abs(pct) / 8, 1))
+  return mixHex(grey, GREEN, Math.min(pct / 12, 1))
+}
