@@ -185,7 +185,7 @@ All charts are interactive Plotly visualizations with a consistent dark theme. M
 
 ## Data Attribution
 
-Contains HM Land Registry data © Crown copyright and database right 2025. Licensed under [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+Contains HM Land Registry data © Crown copyright and database right 2021. This data is licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
 
 Contains OS data © Crown copyright and database right 2025.
 
