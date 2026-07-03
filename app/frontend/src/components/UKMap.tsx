@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, CircleMarker, Tooltip, useMap } from 'react-leaflet'
 import { useNavigate } from 'react-router-dom'
 import type { OverviewRow } from '../lib/api'
 import { ylOrRd, fmtPrice } from '../lib/api'
+import DarkBasemap from './DarkBasemap'
 
 interface Props {
   data: OverviewRow[]
@@ -73,24 +74,16 @@ function Markers({ data, colourBy, labels }: Props) {
   )
 }
 
-const STADIA_KEY = import.meta.env.VITE_STADIA_KEY || ''
-
 export default function UKMap({ data, colourBy, labels }: Props) {
-  const tileUrl = STADIA_KEY
-    ? `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-
   return (
     <MapContainer
       center={[54.5, -3.0]}
       zoom={5}
+      maxZoom={20}
       style={{ width: '100%', height: '100%', background: '#0f0f13' }}
       zoomControl={false}
     >
-      <TileLayer
-        url={tileUrl}
-        attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-      />
+      <DarkBasemap />
       <Markers data={data} colourBy={colourBy} labels={labels} />
     </MapContainer>
   )

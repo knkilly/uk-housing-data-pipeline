@@ -6,7 +6,7 @@ import {
   fetchPropertyTypes,
   fetchMonthly,
   fetchHeatmap,
-  fetchDistricts,
+  fetchRepeatSales,
   fetchAreaLabels,
   fmtPrice,
 } from '../lib/api'
@@ -15,8 +15,8 @@ import VolumeChart from '../components/VolumeChart'
 import PropertyType from '../components/PropertyType'
 import Candlestick from '../components/Candlestick'
 import HeatMap from '../components/HeatMap'
-import DistrictTable from '../components/DistrictTable'
-import { SURFACE, BORDER, TEXT, MUTED, GOLD, RED, GREEN, BG } from '../theme'
+import RepeatSalesMap from '../components/RepeatSalesMap'
+import { SURFACE, BORDER, TEXT, MUTED, GOLD, RED, GREEN, BG, typeColour, priceShade, PROP_LABELS } from '../theme'
 
 function Skeleton({ height = 320 }: { height?: number }) {
   return (
@@ -89,9 +89,9 @@ export default function Area() {
     enabled: !!areaCode,
   })
 
-  const districts = useQuery({
-    queryKey: ['districts', areaCode],
-    queryFn: () => fetchDistricts(areaCode),
+  const repeatSales = useQuery({
+    queryKey: ['repeat-sales', areaCode],
+    queryFn: () => fetchRepeatSales(areaCode),
     enabled: !!areaCode,
   })
 
@@ -101,28 +101,36 @@ export default function Area() {
   })
 
   // ── Heatmap state + debounced fetch ─────────────────────────
-  const [heatPropType, setHeatPropType] = useState('All')
   const [heatPriceMin, setHeatPriceMin] = useState(100)
   const [heatPriceMax, setHeatPriceMax] = useState(1000)
   const [boundsInit, setBoundsInit] = useState(false)
 
-  // Debounce values
+  // Property-type filter (client-side, multi-select). Seeded with all available
+  // types once the data loads; an empty set shows nothing.
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
+  const [typesInit, setTypesInit] = useState(false)
+
+  // Reset per-area view state when navigating between areas.
+  useEffect(() => {
+    setSelectedTypes(new Set())
+    setTypesInit(false)
+  }, [areaCode])
+
+  // Debounce price values (type filtering is client-side now, so no refetch).
   const [debouncedMin, setDebouncedMin] = useState(heatPriceMin)
   const [debouncedMax, setDebouncedMax] = useState(heatPriceMax)
-  const [debouncedType, setDebouncedType] = useState(heatPropType)
 
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedMin(heatPriceMin)
       setDebouncedMax(heatPriceMax)
-      setDebouncedType(heatPropType)
     }, 400)
     return () => clearTimeout(t)
-  }, [heatPriceMin, heatPriceMax, heatPropType])
+  }, [heatPriceMin, heatPriceMax])
 
   const heatmap = useQuery({
-    queryKey: ['heatmap', areaCode, debouncedType, debouncedMin, debouncedMax],
-    queryFn: () => fetchHeatmap(areaCode, debouncedType, debouncedMin, debouncedMax),
+    queryKey: ['heatmap', areaCode, debouncedMin, debouncedMax],
+    queryFn: () => fetchHeatmap(areaCode, 'All', debouncedMin, debouncedMax),
     enabled: !!areaCode,
   })
 
@@ -158,29 +166,67 @@ export default function Area() {
 
   const heatCenter = useMemo<[number, number]>(() => {
     if (!heatmap.data || heatmap.data.length === 0) {
-      // Fallback from districts
-      if (districts.data && districts.data.length > 0) {
-        const lats = districts.data.map(d => d.center_lat).filter(Boolean)
-        const lngs = districts.data.map(d => d.center_long).filter(Boolean)
-        if (lats.length > 0) {
-          return [
-            lats.reduce((a, b) => a + b, 0) / lats.length,
-            lngs.reduce((a, b) => a + b, 0) / lngs.length,
-          ]
-        }
-      }
       return [54.5, -3.0]
     }
     const sorted = [...heatmap.data].sort((a, b) => a.latitude - b.latitude)
     const medIdx = Math.floor(sorted.length / 2)
     return [sorted[medIdx].latitude, sorted[medIdx].longitude]
-  }, [heatmap.data, districts.data])
+  }, [heatmap.data])
 
   const heatZoom = useMemo(() => {
     if (!heatmap.data || heatmap.data.length === 0) return 10
     const uniqueDistricts = new Set(heatmap.data.map(r => r.postcode_district)).size
     return uniqueDistricts <= 5 ? 11 : uniqueDistricts <= 15 ? 10 : 9
   }, [heatmap.data])
+
+  // Heat points actually shown: filtered to the selected types.
+  const displayedHeat = useMemo(() => {
+    if (!heatmap.data) return []
+    return heatmap.data.filter(r => selectedTypes.has(r.property_type))
+  }, [heatmap.data, selectedTypes])
+
+  // Property types present in this area, with sale counts (area-wide).
+  const availableTypes = useMemo(
+    () => Array.from(new Set((heatmap.data ?? []).map(r => r.property_type))).sort(),
+    [heatmap.data],
+  )
+
+  const typeCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of heatmap.data ?? []) {
+      m.set(r.property_type, (m.get(r.property_type) ?? 0) + r.total_transactions)
+    }
+    return m
+  }, [heatmap.data])
+
+  const totalCount = useMemo(
+    () => Array.from(typeCounts.values()).reduce((a, b) => a + b, 0),
+    [typeCounts],
+  )
+
+  // Seed the type filter with all types once data first arrives.
+  useEffect(() => {
+    if (!typesInit && availableTypes.length > 0) {
+      setSelectedTypes(new Set(availableTypes))
+      setTypesInit(true)
+    }
+  }, [availableTypes, typesInit])
+
+  const allTypesSelected =
+    availableTypes.length > 0 && availableTypes.every(t => selectedTypes.has(t))
+
+  const toggleType = useCallback((t: string) => {
+    setSelectedTypes(prev => {
+      const next = new Set(prev)
+      if (next.has(t)) next.delete(t)
+      else next.add(t)
+      return next
+    })
+  }, [])
+
+  const selectAllTypes = useCallback(() => {
+    setSelectedTypes(new Set(availableTypes))
+  }, [availableTypes])
 
   // ── Section styles ──────────────────────────────────────────
   const section: React.CSSProperties = { padding: '0 1.5rem', marginBottom: '1.5rem' }
@@ -197,6 +243,15 @@ export default function Area() {
         )}
       </div>
 
+      {/* Sales definition - highlighted at top */}
+      <div style={{ padding: '0 1.5rem', marginBottom: '1.5rem', background: `${GOLD}08`, borderLeft: `3px solid ${GOLD}`, paddingLeft: '1.2rem', paddingTop: '0.75rem', paddingBottom: '0.75rem', borderRadius: 4 }}>
+        <p style={{ color: TEXT, fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
+          <strong style={{ color: GOLD, fontWeight: 500 }}>Sales</strong> = completed property transfers registered with HM Land Registry. A property that sold more than once is counted each time, so this is the number of sales — not the number of distinct properties.
+        </p>
+      </div>
+
+      <hr style={hr} />
+
       {/* 1. KPI row */}
       <div style={section}>
         {summary.isLoading ? (
@@ -211,7 +266,7 @@ export default function Area() {
               delta={`${yoyPct >= 0 ? '+' : ''}${yoyPct.toFixed(1)}% YoY (${latest.transaction_year})`}
             />
             <KPI label="Median Price" value={fmtPrice(latest.median_price)} />
-            <KPI label="Transactions" value={latest.transaction_count.toLocaleString()} delta={`in ${latest.transaction_year}`} />
+            <KPI label="Sales" value={latest.transaction_count.toLocaleString()} delta={`in ${latest.transaction_year}`} />
             <KPI label="Years of Data" value={String(summary.data?.length || 0)} delta="Land Registry" />
           </div>
         ) : (
@@ -268,11 +323,11 @@ export default function Area() {
             ) : heatmap.error ? (
               <ErrorMsg msg="Failed to load heatmap" />
             ) : (
-              <HeatMap data={heatmap.data || []} center={heatCenter} zoom={heatZoom} />
+              <HeatMap data={displayedHeat} center={heatCenter} zoom={heatZoom} />
             )}
             {heatmap.data && (
               <p style={{ color: MUTED, fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                {heatmap.data.length.toLocaleString()} points shown · last 5 years of sales data
+                {displayedHeat.length.toLocaleString()} points shown · last 5 years of sales data
               </p>
             )}
           </div>
@@ -292,32 +347,58 @@ export default function Area() {
               alignSelf: 'flex-start',
             }}
           >
-            {/* Property type dropdown */}
+            {/* Property type multi-select */}
             <div>
-              <label style={{ color: MUTED, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '0.3rem' }}>
-                Property Type
+              <label style={{ color: MUTED, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '0.4rem' }}>
+                Property Types
               </label>
-              <select
-                value={heatPropType}
-                onChange={e => setHeatPropType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.4rem',
-                  background: BG,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 4,
-                  color: TEXT,
-                  fontFamily: 'DM Sans',
-                  fontSize: '0.85rem',
-                }}
-              >
-                <option value="All">All</option>
-                <option value="Detached">Detached</option>
-                <option value="Semi-Detached">Semi-Detached</option>
-                <option value="Terraced">Terraced</option>
-                <option value="Flat">Flat</option>
-                <option value="Other">Other</option>
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <button
+                  onClick={selectAllTypes}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.35rem 0.5rem', borderRadius: 5,
+                    background: allTypesSelected ? `${GOLD}22` : BG,
+                    border: `1px solid ${allTypesSelected ? GOLD : BORDER}`,
+                    color: allTypesSelected ? GOLD : TEXT,
+                    fontFamily: 'DM Sans', fontSize: '0.8rem', cursor: 'pointer',
+                  }}
+                >
+                  <span>All</span>
+                  <span style={{ color: MUTED }}>({totalCount.toLocaleString()})</span>
+                </button>
+
+                {availableTypes.map(t => {
+                  const on = selectedTypes.has(t)
+                  const c = typeColour(t)
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => toggleType(t)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.35rem 0.5rem', borderRadius: 5,
+                        background: on ? SURFACE : BG,
+                        border: `1px solid ${on ? c : BORDER}`,
+                        color: on ? TEXT : MUTED,
+                        opacity: on ? 1 : 0.55,
+                        fontFamily: 'DM Sans', fontSize: '0.8rem', cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{
+                        width: 22, height: 10, borderRadius: 2, flexShrink: 0,
+                        background: `linear-gradient(90deg, ${priceShade(c, 0)}, ${priceShade(c, 1)})`,
+                      }} />
+                      <span style={{ flex: 1 }}>{PROP_LABELS[t] ?? t}</span>
+                      <span style={{ color: MUTED }}>({(typeCounts.get(t) ?? 0).toLocaleString()})</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p style={{ color: MUTED, fontSize: '0.68rem', marginTop: '0.45rem', lineHeight: 1.3 }}>
+                Hue = type · darker = more expensive
+              </p>
             </div>
 
             {/* Min price slider */}
@@ -361,14 +442,31 @@ export default function Area() {
         </div>
       </div>
 
-      <hr style={hr} />
 
-      {/* 6. District Table */}
+      {/* 7. Repeat Sales */}
       <div style={section}>
-        <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.5rem' }}>
-          District Breakdown (Latest Year)
+        <h4 style={{ fontSize: '0.95rem', fontWeight: 400, marginBottom: '0.35rem' }}>
+          Repeat Sales — properties sold 2+ times
         </h4>
-        {districts.isLoading ? <Skeleton height={200} /> : districts.error ? <ErrorMsg msg="Failed to load districts" /> : districts.data && <DistrictTable data={districts.data} />}
+        <p style={{ color: MUTED, fontSize: '0.75rem', marginBottom: '0.6rem', lineHeight: 1.4 }}>
+          Address-matched properties (postcode + house/flat identifier) that sold more than once across
+          all years. Colour = annualised price change (<span style={{ color: RED }}>fell</span> →
+          grey → <span style={{ color: GREEN }}>rose</span>), size = number of sales.
+          Click a point for its full price history. Matching is address-based, so it's not guaranteed
+          to be the exact same dwelling.
+        </p>
+        {repeatSales.isLoading ? <Skeleton height={480} /> : repeatSales.error ? <ErrorMsg msg="Failed to load repeat sales" /> : repeatSales.data && (
+          repeatSales.data.length > 0 ? (
+            <>
+              <RepeatSalesMap data={repeatSales.data} center={heatCenter} zoom={heatZoom} />
+              <p style={{ color: MUTED, fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                {repeatSales.data.length.toLocaleString()} repeat-sold properties · click any point for its price history
+              </p>
+            </>
+          ) : (
+            <p style={{ color: MUTED, fontSize: '0.85rem' }}>No address-matched repeat sales found for this area.</p>
+          )
+        )}
       </div>
 
       <style>{`

@@ -57,3 +57,8 @@ async def get_area_heatmap(
 @router.get("/area/{code}/districts")
 async def get_area_districts(code: str):
     return await _run(db.area_districts, code.upper())
+
+
+@router.get("/area/{code}/repeat-sales")
+async def get_area_repeat_sales(code: str):
+    return await _run(db.area_repeat_sales, code.upper())

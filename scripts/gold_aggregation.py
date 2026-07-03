@@ -408,10 +408,91 @@ def create_gold_layer():
     print()
 
     # =========================================================================
-    # 9. Indexes for fast dashboard lookups
+    # 9. Repeat Sales (address-matched, all years)
     # =========================================================================
     print("=" * 70)
-    print("9. Creating Indexes")
+    print("9. Creating Repeat Sales (tenure-consistent only)")
+    print("=" * 70)
+
+    # Large GROUP BY — drop insertion-order bookkeeping; show a live progress bar.
+    con.execute("PRAGMA preserve_insertion_order=false")
+    con.execute("PRAGMA enable_progress_bar")
+
+    # Phase 1: aggregate per property from the silver helper.
+    # history is left UNSORTED here (sorted client-side) to skip an in-aggregate sort.
+    t0 = datetime.now()
+    con.execute("DROP TABLE IF EXISTS gold._repeat_agg")
+    con.execute("""
+        CREATE TABLE gold._repeat_agg AS
+        SELECT
+            postcode, paon, saon,
+            ANY_VALUE(street)     AS street,
+            ANY_VALUE(town_city)  AS town_city,
+            COUNT(*)              AS n_sales,
+            MIN(transaction_date) AS first_date_d,
+            MAX(transaction_date) AS last_date_d,
+            CAST(arg_min(price, transaction_date) AS BIGINT) AS first_price,
+            CAST(arg_max(price, transaction_date) AS BIGINT) AS last_price,
+            list(struct_pack(
+                date  := strftime(transaction_date, '%Y-%m-%d'),
+                price := CAST(price AS BIGINT)
+            )) AS history
+        FROM silver.repeat_property_sales
+        GROUP BY postcode, paon, saon
+        HAVING MIN(transaction_date) < MAX(transaction_date)
+          AND COUNT(DISTINCT tenure) = 1
+    """)
+    n_props = con.execute("SELECT COUNT(*) FROM gold._repeat_agg").fetchone()[0]
+    print(f"  [1/2] properties aggregated: {n_props:,}  "
+          f"({(datetime.now() - t0).total_seconds():.1f}s)")
+    print("        (filtered: tenure must be consistent across all sales)")
+
+    # Phase 2: join postcodes for coordinates + derive % change metrics.
+    t0 = datetime.now()
+    con.execute("DROP TABLE IF EXISTS gold.repeat_sales")
+    con.execute("""
+        CREATE TABLE gold.repeat_sales AS
+        SELECT
+            a.postcode || '|' || a.paon || '|' || COALESCE(a.saon, '') AS property_key,
+            a.postcode,
+            REGEXP_EXTRACT(a.postcode, '^[A-Z]+') AS postcode_area,
+            SPLIT_PART(a.postcode, ' ', 1)         AS postcode_district,
+            a.paon, a.saon, a.street, a.town_city,
+            p.latitude, p.longitude,
+            a.n_sales,
+            strftime(a.first_date_d, '%Y-%m-%d') AS first_date,
+            strftime(a.last_date_d,  '%Y-%m-%d') AS last_date,
+            a.first_price,
+            a.last_price,
+            ROUND((a.last_price - a.first_price) * 100.0 / a.first_price, 1) AS total_pct_change,
+            ROUND(
+                CASE
+                    WHEN date_diff('day', a.first_date_d, a.last_date_d) > 0 AND a.first_price > 0
+                    THEN (POWER(
+                            CAST(a.last_price AS DOUBLE) / a.first_price,
+                            365.25 / date_diff('day', a.first_date_d, a.last_date_d)
+                         ) - 1) * 100
+                    ELSE NULL
+                END, 1
+            ) AS annualised_pct_change,
+            CAST(NULL AS VARCHAR) AS uprn,
+            a.history
+        FROM gold._repeat_agg a
+        INNER JOIN silver.postcodes p ON a.postcode = p.postcode
+        WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+    """)
+    result = con.execute("SELECT COUNT(*) FROM gold.repeat_sales").fetchone()
+    areas = con.execute("SELECT COUNT(DISTINCT postcode_area) FROM gold.repeat_sales").fetchone()
+    print(f"  [2/2] gold.repeat_sales rows: {result[0]:,} across {areas[0]} areas  "
+          f"({(datetime.now() - t0).total_seconds():.1f}s)")
+
+    con.execute("DROP TABLE IF EXISTS gold._repeat_agg")
+    print(f"✓ Created {result[0]:,} address-matched repeat-sold properties "
+          f"(2+ sales, consistent tenure, all years) across {areas[0]} areas")
+    print()
+
+    print("=" * 70)
+    print("10. Creating Indexes")
     print("=" * 70)
 
     indexes = [
@@ -420,11 +501,12 @@ def create_gold_layer():
         ("idx_district_code",       "gold.market_summary_by_district",  "postcode_district"),
         ("idx_heatmap_area",        "gold.heatmap_data",                "postcode_area"),
         ("idx_heatmap_district",    "gold.heatmap_data",                "postcode_district"),
-        ("idx_heatmap_type_area",   "gold.heatmap_data_by_type",        "(postcode_area, property_type)"),
+        ("idx_heatmap_type_area",   "gold.heatmap_data_by_type",        "postcode_area, property_type"),
         ("idx_monthly_area",        "gold.monthly_trends_by_area",      "postcode_area"),
         ("idx_property_area",       "gold.property_analysis_by_area",   "postcode_area"),
         ("idx_area_labels",         "gold.postcode_area_labels",        "postcode_area"),
         ("idx_uk_overview_area",    "gold.uk_overview",                 "postcode_area"),
+        ("idx_repeat_area",         "gold.repeat_sales",                "postcode_area"),
     ]
 
     for idx_name, table, column in indexes:
@@ -453,6 +535,7 @@ def create_gold_layer():
         'property_analysis_by_area',
         'postcode_area_labels',
         'uk_overview',
+        'repeat_sales',
     ]
     
     table_stats = []
@@ -487,6 +570,7 @@ def create_gold_layer():
     print("  - gold.property_analysis_by_area    <- property type breakdown")
     print("  - gold.postcode_area_labels         <- human-readable area names")
     print("  - gold.uk_overview                  <- UK-wide centroids for overview map")
+    print("  - gold.repeat_sales                 <- address-matched 2+ sales (tenure-consistent)")
     
     con.close()
     return True

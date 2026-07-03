@@ -13,12 +13,10 @@ pyarrow = ">=14.0.0"
 requests = ">=2.31.0"
 
 [tasks]
-setup    = "python scripts/00_setup_environment.py"
-download = "python scripts/00_download_postcodes.py"
-bronze   = "python scripts/01_bronze_ingestion.py"
-silver   = "python scripts/02_silver_transformation.py"
-gold     = "python scripts/03_gold_aggregation.py"
-query    = "python scripts/04_query_data.py"
+download = "python scripts/download_ons_postcodes.py"
+bronze   = "python scripts/bronze_ingestion.py"
+silver   = "python scripts/silver_transformation.py"
+gold     = "python scripts/gold_aggregation.py"
 process  = "python scripts/process_layers.py"
 
 [feature.dev.dependencies]

@@ -102,6 +102,34 @@ export const fetchHeatmap = (
 export const fetchDistricts = (code: string) =>
   fetchJSON<DistrictRow[]>(`/api/area/${encodeURIComponent(code)}/districts`)
 
+export interface PricePoint {
+  date: string // YYYY-MM-DD
+  price: number
+}
+
+export interface RepeatSaleRow {
+  property_key: string
+  postcode: string
+  postcode_district: string
+  paon: string
+  saon: string | null
+  street: string
+  town_city: string
+  latitude: number
+  longitude: number
+  n_sales: number
+  first_date: string
+  last_date: string
+  first_price: number
+  last_price: number
+  total_pct_change: number
+  annualised_pct_change: number | null
+  history: PricePoint[]
+}
+
+export const fetchRepeatSales = (code: string) =>
+  fetchJSON<RepeatSaleRow[]>(`/api/area/${encodeURIComponent(code)}/repeat-sales`)
+
 // ---------------------------------------------------------------------------
 // Colour scale — YlOrRd (yellow→orange→red) for price mapping
 // ---------------------------------------------------------------------------

@@ -121,6 +121,18 @@ def area_districts(code: str) -> list[dict]:
     )
 
 
+@lru_cache(maxsize=256)
+def area_repeat_sales(code: str) -> list[dict]:
+    return _rows(
+        "SELECT property_key, postcode, postcode_district, paon, saon, street, "
+        "town_city, latitude, longitude, n_sales, first_date, last_date, "
+        "first_price, last_price, total_pct_change, annualised_pct_change, history "
+        "FROM gold.repeat_sales WHERE postcode_area = ? "
+        "ORDER BY n_sales DESC, last_date DESC LIMIT 3000",
+        [code],
+    )
+
+
 def warmup() -> None:
     """Pre-load overview data and area labels so the first page load is instant."""
     try:
